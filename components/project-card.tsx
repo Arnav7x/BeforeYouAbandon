@@ -74,8 +74,8 @@ export function ProjectCard({ project, onRemove }: Props) {
     const byDate = new Map(daily.map((d) => [d.date, d.count]))
     for (let i = 0; i < 14; i++) {
       const d = new Date()
-      d.setHours(0, 0, 0, 0)
-      d.setDate(d.getDate() - i)
+      d.setUTCHours(0, 0, 0, 0)
+      d.setUTCDate(d.getUTCDate() - i)
       const key = d.toISOString().slice(0, 10)
       const count = byDate.get(key) ?? 0
       if (count > 0) {

@@ -1,4 +1,5 @@
 const GH_API = "https://api.github.com"
+const API_BASE = "/api/github"
 
 export function parseRepoUrl(input: string): { owner: string; repo: string } | null {
   // Accepts full URL or "owner/repo"
@@ -20,21 +21,13 @@ export function parseRepoUrl(input: string): { owner: string; repo: string } | n
 }
 
 export async function fetchLastCommitDate(owner: string, repo: string): Promise<string | null> {
-  const url = `${GH_API}/repos/${owner}/${repo}/commits?per_page=1`
-  const res = await fetch(url, {
-    headers: {
-      // Unauthenticated: subject to low rate limits, OK for MVP
-      Accept: "application/vnd.github+json",
-    },
-  })
+  const url = `${API_BASE}/last-commit?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`
+  const res = await fetch(url)
   if (!res.ok) {
-    // 404 or other errors
     return null
   }
-  const data = (await res.json()) as Array<any>
-  if (!Array.isArray(data) || data.length === 0) return null
-  const iso = data[0]?.commit?.author?.date ?? data[0]?.commit?.committer?.date
-  return typeof iso === "string" ? iso : null
+  const data = (await res.json()) as { iso: string | null }
+  return data?.iso ?? null
 }
 
 export async function fetchDailyCommitCounts(
@@ -42,49 +35,15 @@ export async function fetchDailyCommitCounts(
   repo: string,
   days = 7,
 ): Promise<{ date: string; count: number }[]> {
-  const since = new Date()
-  since.setUTCHours(0, 0, 0, 0)
-  since.setUTCDate(since.getUTCDate() - (days - 1))
-
-  const until = new Date()
-  until.setUTCHours(23, 59, 59, 999)
-
-  const params = new URLSearchParams({
-    since: since.toISOString(),
-    until: until.toISOString(),
-    per_page: "100",
-  })
-  const url = `${GH_API}/repos/${owner}/${repo}/commits?${params.toString()}`
-
-  const res = await fetch(url, {
-    headers: { Accept: "application/vnd.github+json" },
-  })
+  const url = `${API_BASE}/daily?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&days=${days}`
+  const res = await fetch(url)
   if (!res.ok) {
     return generateEmptyDaysUTC(days)
   }
-  const commits = (await res.json()) as Array<any>
-
-  // Bucket by UTC date keys YYYY-MM-DD
-  const buckets = new Map<string, number>()
-  const cursor = new Date(since)
-  for (let i = 0; i < days; i++) {
-    const key = cursor.toISOString().slice(0, 10)
-    buckets.set(key, 0)
-    cursor.setUTCDate(cursor.getUTCDate() + 1)
-  }
-
-  for (const c of commits) {
-    const iso = c?.commit?.author?.date ?? c?.commit?.committer?.date
-    if (!iso || typeof iso !== "string") continue
-    const d = new Date(iso)
-    d.setUTCHours(0, 0, 0, 0)
-    const key = d.toISOString().slice(0, 10)
-    if (buckets.has(key)) {
-      buckets.set(key, (buckets.get(key) || 0) + 1)
-    }
-  }
-
-  return Array.from(buckets.entries()).map(([date, count]) => ({ date, count }))
+  const data = (await res.json()) as { date: string; count: number }[]
+  // Defensive: ensure the expected length/order, otherwise regenerate empty
+  if (!Array.isArray(data) || data.length === 0) return generateEmptyDaysUTC(days)
+  return data
 }
 
 function generateEmptyDaysUTC(days: number) {
