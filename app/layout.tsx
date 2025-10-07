@@ -1,4 +1,4 @@
-import type React from "reac"
+import type React from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
