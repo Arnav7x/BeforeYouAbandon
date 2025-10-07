@@ -34,7 +34,10 @@ export function ProjectCard({ project, onRemove }: Props) {
     error: lastError,
     mutate: mutateLast,
   } = useSWR<string | null>(["github:last-commit", owner, repo], () => fetchLastCommitDate(owner, repo), {
-    revalidateOnFocus: false,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    refreshInterval: 60_000,
+    dedupingInterval: 10_000,
   })
 
   const {
@@ -45,7 +48,12 @@ export function ProjectCard({ project, onRemove }: Props) {
   } = useSWR<{ date: string; count: number }[]>(
     ["github:daily-7", owner, repo],
     () => fetchDailyCommitCounts(owner, repo, 7),
-    { revalidateOnFocus: false },
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      refreshInterval: 60_000,
+      dedupingInterval: 10_000,
+    },
   )
 
   const refresh = async () => {

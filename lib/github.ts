@@ -43,10 +43,11 @@ export async function fetchDailyCommitCounts(
   days = 7,
 ): Promise<{ date: string; count: number }[]> {
   const since = new Date()
-  since.setHours(0, 0, 0, 0)
-  since.setDate(since.getDate() - (days - 1))
+  since.setUTCHours(0, 0, 0, 0)
+  since.setUTCDate(since.getUTCDate() - (days - 1))
+
   const until = new Date()
-  until.setHours(23, 59, 59, 999)
+  until.setUTCHours(23, 59, 59, 999)
 
   const params = new URLSearchParams({
     since: since.toISOString(),
@@ -59,25 +60,24 @@ export async function fetchDailyCommitCounts(
     headers: { Accept: "application/vnd.github+json" },
   })
   if (!res.ok) {
-    // Return empty dataset on error to keep UI resilient
-    return generateEmptyDays(days)
+    return generateEmptyDaysUTC(days)
   }
   const commits = (await res.json()) as Array<any>
 
-  // Bucket commits by YYYY-MM-DD (local date based on normalized start)
+  // Bucket by UTC date keys YYYY-MM-DD
   const buckets = new Map<string, number>()
   const cursor = new Date(since)
   for (let i = 0; i < days; i++) {
     const key = cursor.toISOString().slice(0, 10)
     buckets.set(key, 0)
-    cursor.setDate(cursor.getDate() + 1)
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
 
   for (const c of commits) {
     const iso = c?.commit?.author?.date ?? c?.commit?.committer?.date
     if (!iso || typeof iso !== "string") continue
     const d = new Date(iso)
-    d.setHours(0, 0, 0, 0)
+    d.setUTCHours(0, 0, 0, 0)
     const key = d.toISOString().slice(0, 10)
     if (buckets.has(key)) {
       buckets.set(key, (buckets.get(key) || 0) + 1)
@@ -87,14 +87,14 @@ export async function fetchDailyCommitCounts(
   return Array.from(buckets.entries()).map(([date, count]) => ({ date, count }))
 }
 
-function generateEmptyDays(days: number) {
+function generateEmptyDaysUTC(days: number) {
   const out: { date: string; count: number }[] = []
   const start = new Date()
-  start.setHours(0, 0, 0, 0)
-  start.setDate(start.getDate() - (days - 1))
+  start.setUTCHours(0, 0, 0, 0)
+  start.setUTCDate(start.getUTCDate() - (days - 1))
   for (let i = 0; i < days; i++) {
     const key = new Date(start)
-    key.setDate(start.getDate() + i)
+    key.setUTCDate(start.getUTCDate() + i)
     out.push({ date: key.toISOString().slice(0, 10), count: 0 })
   }
   return out
